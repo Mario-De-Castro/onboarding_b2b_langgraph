@@ -1,0 +1,10 @@
+alembic
+fastapi
+langchain-ollama
+langgraph
+langgraph-checkpoint-sqlite
+pydantic
+python-dotenv
+python-multipart
+sqlalchemy
+uvicorn[standard]
