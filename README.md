@@ -1,4 +1,3 @@
-tests/                                  Testes sem dependência do servidor Ollama
 # Onboarding B2B com LangGraph
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
