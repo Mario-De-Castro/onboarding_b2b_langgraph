@@ -11,7 +11,7 @@ from src.utils.models import Base
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 settings = B2BEnvironments()
 database_path = config.attributes.get("database_path", settings.ONBOARDING_DATABASE)

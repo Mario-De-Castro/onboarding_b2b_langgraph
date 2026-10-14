@@ -9,9 +9,9 @@ tests/                                  Testes sem dependência do servidor Olla
 
 ## Visão geral
 
-Projeto de estudo sobre orquestração de agentes e workflows com LangGraph. A API recebe os dados de uma empresa e um arquivo de texto financeiro; um LLM local extrai os campos financeiros enquanto outro ramo consulta regras de risco no SQLite. O grafo combina os resultados e, quando necessário, pausa para uma decisão humana.
+Projeto de estudo sobre orquestração de agentes e workflows com LangGraph. A API recebe os dados de uma empresa e um arquivo de texto financeiro, um LLM local extrai os campos financeiros enquanto outro ramo consulta regras de risco no SQLite. O grafo combina os resultados e, quando necessário, pausa para uma decisão humana.
 
-O projeto reúne conceitos de LangGraph, FastAPI, Ollama, Pydantic, SQLAlchemy, SQLite, Alembic, persistência de checkpoints e testes com dependências injetadas. A consulta de crédito e a ativação no CRM são simuladas; não há integração com bureau ou CRM real.
+O projeto reúne conceitos de LangGraph, FastAPI, Ollama, Pydantic, SQLAlchemy, SQLite, Alembic, persistência de checkpoints e testes com dependências injetadas. A consulta de crédito e a ativação no CRM são simuladas, não há integração com bureau ou CRM real.
 
 ## O que este projeto permite estudar
 
@@ -63,6 +63,11 @@ Edite `.env` caso o Ollama, o modelo ou os caminhos locais sejam diferentes dos 
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | URL do servidor Ollama |
 | `OLLAMA_MODEL` | `qwen2.5:3b` | Modelo usado na extração estruturada |
 | `OLLAMA_TIMEOUT` | `180` | Timeout da chamada ao modelo, em segundos |
+| `LANGFUSE_PUBLIC_KEY` | vazio | Chave pública do projeto Langfuse |
+| `LANGFUSE_SECRET_KEY` | vazio | Chave secreta do projeto Langfuse |
+| `LANGFUSE_BASE_URL` | `https://cloud.langfuse.com` | URL do Langfuse Cloud ou da instância self-hosted |
+| `LANGFUSE_TRACING_ENVIRONMENT` | `development` | Ambiente atribuído às traces |
+| `LANGFUSE_TRACING_ENABLED` | `true` | Habilita/desabilita tracing; sem as duas chaves, fica inativo |
 | `MAX_FILE_SIZE_BYTES` | `10485760` | Tamanho máximo do upload (10 MiB) |
 | `ONBOARDING_DATABASE` | `data/onboarding.sqlite3` | SQLite para regras, solicitações e checkpoints |
 | `ONBOARDING_FILES_DIR` | `data/onboarding_files` | Diretório local dos arquivos recebidos |
@@ -97,6 +102,12 @@ flowchart TD
 O ramo de extração usa `with_structured_output` com o schema `FinancialExtraction`. Campos que não aparecem no documento podem ser retornados como `null`; o modelo recebe instruções para não estimar dados ausentes.
 
 O ramo de compliance consulta regras cadastradas em `credit_bureau_rules`. O supervisor consulta `risk_policies`; essas faixas são dados estruturados e ficam no SQLite, em vez de serem inferidas pelo LLM.
+
+## Observabilidade e avaliação
+
+Com as chaves do Langfuse configuradas, o SDK Python instrumenta o fluxo usando OpenTelemetry. Cada execução do grafo gera uma trace; os nós e a chamada de geração do Ollama aparecem como spans relacionados, e execuções de decisão humana ficam agrupadas pela sessão do onboarding. Sem configuração, a aplicação e os testes funcionam normalmente.
+
+O projeto registra dois scores determinísticos para a extração financeira: validade dos campos/tipos esperados e proporção dos valores numéricos extraídos que também aparecem no documento. Essa última métrica verifica evidência literal normalizada (incluindo formatos monetários brasileiros); não confirma que o valor foi associado ao campo correto nem substitui um conjunto de documentos com respostas de referência ou uma avaliação semântica. Para reduzir exposição de dados, o conteúdo do documento e os valores financeiros não são incluídos nos spans.
 
 | Sufixo do CNPJ | Score de risco simulado | Resultado esperado |
 | --- | ---: | --- |

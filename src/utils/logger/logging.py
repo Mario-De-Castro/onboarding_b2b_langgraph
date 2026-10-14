@@ -12,4 +12,7 @@ def configure_logging() -> None:
 
 def get_logger(name: str) -> logging.Logger:
     configure_logging()
-    return logging.getLogger(name)
+    logger = logging.getLogger(name)
+    level_name = B2BEnvironments().LOG_LEVEL
+    logger.setLevel(getattr(logging, level_name, logging.INFO))
+    return logger

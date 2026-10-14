@@ -16,6 +16,11 @@ from src.utils.repository import OnboardingRequestRepository
 from src.utils.schemas import OnboardingState
 from src.utils.schemas.onboarding import OnboardingPostRequest
 from src.utils.logger.logging import get_logger
+from src.utils.telemetry import (
+    evaluate_financial_extraction,
+    record_evaluation_scores,
+    trace_workflow,
+)
 
 logger = get_logger(__name__)
 
@@ -199,13 +204,30 @@ class OnboardingService:
 
         try:
             config = self._config(onboarding_id)
-            for _ in self.graph.stream(
-                self._initial_state(company_name, cnpj, document_text),
-                config,
-                stream_mode="updates",
-            ):
-                pass
-            self._update_from_graph(onboarding_id, self.graph.get_state(config))
+            with trace_workflow(onboarding_id, "start") as trace:
+                for _ in self.graph.stream(
+                    self._initial_state(company_name, cnpj, document_text),
+                    config,
+                    stream_mode="updates",
+                ):
+                    pass
+                snapshot = self.graph.get_state(config)
+                self._update_from_graph(onboarding_id, snapshot)
+                evaluations = evaluate_financial_extraction(
+                    document_text,
+                    snapshot.values["extracted_financials"],
+                )
+                record_evaluation_scores(trace, evaluations)
+                if trace is not None:
+                    trace.update(
+                        output={
+                            "onboarding_status": snapshot.values["onboarding_status"],
+                            "evaluation_scores": [
+                                {"name": score.name, "value": score.value}
+                                for score in evaluations
+                            ],
+                        }
+                    )
         except Exception as exc:
             with self.database.session_scope() as session:
                 OnboardingRequestRepository(session).update_result(
@@ -261,8 +283,14 @@ class OnboardingService:
         if "human_review_node" not in snapshot.next:
             raise ValueError("O estado do grafo nao esta aguardando revisao humana.")
 
-        self.graph.update_state(config, {"human_decision": decision})
-        for _ in self.graph.stream(None, config, stream_mode="updates"):
-            pass
-        self._update_from_graph(onboarding_id, self.graph.get_state(config))
+        with trace_workflow(onboarding_id, "decision") as trace:
+            self.graph.update_state(config, {"human_decision": decision})
+            for _ in self.graph.stream(None, config, stream_mode="updates"):
+                pass
+            final_snapshot = self.graph.get_state(config)
+            self._update_from_graph(onboarding_id, final_snapshot)
+            if trace is not None:
+                trace.update(
+                    output={"onboarding_status": final_snapshot.values["onboarding_status"]}
+                )
         return self.get_snapshot(onboarding_id)

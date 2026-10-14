@@ -7,6 +7,11 @@ from src.utils.database.session import DatabaseSessionManager
 from src.utils.schemas import FinancialExtraction
 
 
+@pytest.fixture(autouse=True)
+def disable_langfuse_tracing(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_TRACING_ENABLED", "false")
+
+
 class FakeExtractor:
     def invoke(self, messages):
         return FinancialExtraction(

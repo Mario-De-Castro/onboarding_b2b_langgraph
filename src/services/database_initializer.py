@@ -1,4 +1,7 @@
 from pathlib import Path
+import logging
+
+logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
 
 from alembic import command
 from alembic.config import Config
